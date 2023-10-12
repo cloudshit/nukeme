@@ -127,6 +127,7 @@ Resources:
       ImageId: !Ref LatestAmiId
       InstanceType: t3.micro
       IamInstanceProfile: !Ref WorkerInstanceProfile
+      PropagateTagsToVolumeOnCreation: true
       NetworkInterfaces: 
         - AssociatePublicIpAddress: "true"
           DeviceIndex: "0"
@@ -186,10 +187,44 @@ Resources:
           - "999999999999"
 
           accounts:
-            "${AWS::AccountId}": {}
+            "${AWS::AccountId}":
+              filters:
+                CloudFormationStack:
+                  - "${AWS::StackName}"
+                EC2VPC:
+                  - property: tag:Name
+                    value: nukeme-vpc
+                EC2InternetGateway:
+                  - property: tag:Name
+                    value: nukeme-igw
+                EC2InternetGatewayAttachment:
+                  - property: tag:igw:Name
+                    value: nukeme-igw
+                EC2RouteTable:
+                  - property: tag:Name
+                    value: nukeme-rtb-public
+                EC2Subnet:
+                  - property: tag:Name
+                    value: nukeme-subnet-public-a
+                EC2SecurityGroup:
+                  - property: tag:Name
+                    value: nukeme-sg-worker
+                IAMRole:
+                  - "nukeme-role-worker"
+                IAMRolePolicy:
+                  - "nukeme-role-worker -> nukeme-policy-admin"
+                IAMInstanceProfile:
+                  - "nukeme-role-worker"
+                IAMInstanceProfileRole:
+                  - "nukeme-role-worker -> nukeme-role-worker"
+                CloudWatchLogsLogGroup:
+                  - "nukeme-log"
+                EC2Instance:
+                  - property: tag:Name
+                    value: nukeme-worker
           EOF
 
-          ./aws-nuke-v2.25.0-linux-amd64 -c config.yaml --force
+          ./aws-nuke-v2.25.0-linux-amd64 -c config.yaml --force-sleep 3 --force --no-dry-run
       Tags:
         - Key: Name
           Value: nukeme-worker

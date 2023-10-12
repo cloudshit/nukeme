@@ -118,7 +118,7 @@ Resources:
   WorkerLogStream:
     Type: AWS::Logs::LogStream
     Properties:
-      LogGroupName: nukeme-log
+      LogGroupName: !Ref WorkerLogGroup
       LogStreamName: nukeme-worker-log
 
   WorkerInstance:

@@ -81,6 +81,7 @@ Resources:
   WorkerRole:
     Type: 'AWS::IAM::Role'
     Properties:
+      RoleName: nukeme-role-worker
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -104,8 +105,21 @@ Resources:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
       Path: /
+      InstanceProfileName: nukeme-role-worker
       Roles:
         - !Ref WorkerRole
+
+  WorkerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: nukeme-log
+      RetentionInDays: 1
+  
+  WorkerLogStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: nukeme-log
+      LogStreamName: nukeme-worker-log
 
   WorkerInstance:
     Type: AWS::EC2::Instance
@@ -123,6 +137,42 @@ Resources:
       UserData: 
         Fn::Base64: !Sub |
           #!/bin/sh
+          yum install -y amazon-cloudwatch-agent
+
+          mkdir -p /opt/aws/amazon-cloudwatch-agent/etc
+          cat <<EOF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+          {
+            "agent": {
+              "run_as_user": "root"
+            },
+            "logs": {
+              "logs_collected": {
+                "files": {
+                  "collect_list": [
+                    {
+                      "file_path": "/var/log/cloud-init-output.log",
+                      "log_group_name": "nukeme-log",
+                      "log_stream_name": "nukeme-worker-log",
+                      "retention_in_days": 1
+                    }
+                  ]
+                }
+              }
+            },
+            "metrics": {
+              "metrics_collected": {
+                "collectd": {
+                  "metrics_aggregation_interval": 60
+                }
+              }
+            }
+          }
+          EOF
+
+          mkdir -p /usr/share/collectd
+          touch /usr/share/collectd/types.db
+          systemctl enable --now amazon-cloudwatch-agent.service
+
           wget https://github.com/rebuy-de/aws-nuke/releases/download/v2.25.0/aws-nuke-v2.25.0-linux-amd64.tar.gz
           tar xvf aws-nuke-v2.25.0-linux-amd64.tar.gz
           chmod +x aws-nuke-v2.25.0-linux-amd64
@@ -130,30 +180,7 @@ Resources:
           cat <<EOF > config.yaml
           regions:
             - global
-            - us-east-2
-            - us-east-1
-            - us-west-1
-            - us-west-2
-            - af-south-1
-            - ap-east-1
-            - ap-southeast-3
-            - ap-south-1
-            - ap-northeast-3
-            - ap-northeast-2
-            - ap-southeast-1
-            - ap-southeast-2
-            - ap-northeast-1
-            - ca-central-1
-            - cn-north-1
-            - cn-northwest-1
-            - eu-central-1
-            - eu-west-1
-            - eu-west-2
-            - eu-south-1
-            - eu-west-3
-            - eu-north-1
-            - me-south-1
-            - sa-east-1
+            - ${AWS::Region}
 
           account-blocklist:
           - "999999999999"
@@ -168,6 +195,9 @@ Resources:
           Value: nukeme-worker
 
 Outputs:
+  WorkingLog:
+    Description: Working log from aws-nuke
+    Value: !Ref WorkerLogStream
   WorkerInstanceID:
     Description: Worker instance ID
     Value: !Ref WorkerInstance

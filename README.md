@@ -1,4 +1,6 @@
 # ☢️ nukeme
+> [!WARNING]
+> Currently, `nukeme` doesn't support custom `aws-nuke` configuration. So  please run it only for "Sandbox Cleaning" purposes.
 
 ![](docs/banner.png)
 
@@ -7,9 +9,6 @@
 It uses [`aws-nuke` by rebuy-de](https://github.com/rebuy-de/aws-nuke) binary for nuking your account.
 
 ## how to run
-> [!WARNING]
-> Currently, `nukeme` doesn't support custom `aws-nuke` configuration. So  please run it only for "Sandbox Cleaning" purposes.
-
 > [!IMPORTANT]
 > DO NOT delete CloudFormation stack manually. it will automatically destroy itself when finished.
 

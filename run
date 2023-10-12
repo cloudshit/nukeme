@@ -258,12 +258,9 @@ Resources:
           Value: nukeme-worker
 
 Outputs:
-  WorkingLog:
-    Description: Working log from aws-nuke
-    Value: !Ref WorkerLogStream
-  WorkerInstanceID:
-    Description: Worker instance ID
-    Value: !Ref WorkerInstance
+  Monitoring:
+    Description: Monitor aws-nuke with Cloudwatch Live Tail service.
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logsV2:live-tail$3FlogGroupArns$3D~(~'arn*3aaws*3alogs*3a${AWS::Region}*3a${AWS::AccountId}*3alog-group*3anukeme-log*3a*2a)$26logStreamNames$3D~(~'nukeme-worker-log)"
   Notice:
-    Description: Notice!
-    Value: This stack automatically deletes itself when worker job is done. Do not delete this stack manually!
+    Description: Notice
+    Value: DO NOT delete this CloudFormation stack manually. this will automatically destroy itself when finished.

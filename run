@@ -162,99 +162,108 @@ Resources:
           SubnetId:
             !Ref WorkerSubnet
       UserData: 
-        Fn::Base64: !Sub |
-          #!/bin/sh
-          yum install -y amazon-cloudwatch-agent
+        Fn::Base64: !Sub
+          - |
+            #!/bin/sh
+            yum install -y amazon-cloudwatch-agent
 
-          mkdir -p /opt/aws/amazon-cloudwatch-agent/etc
-          cat <<EOF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-          {
-            "agent": {
-              "run_as_user": "root"
-            },
-            "logs": {
-              "logs_collected": {
-                "files": {
-                  "collect_list": [
-                    {
-                      "file_path": "/var/log/cloud-init-output.log",
-                      "log_group_name": "nukeme-log",
-                      "log_stream_name": "nukeme-worker-log",
-                      "retention_in_days": 1
-                    }
-                  ]
+            mkdir -p /opt/aws/amazon-cloudwatch-agent/etc
+            cat <<EOF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+            {
+              "agent": {
+                "run_as_user": "root"
+              },
+              "logs": {
+                "logs_collected": {
+                  "files": {
+                    "collect_list": [
+                      {
+                        "file_path": "/var/log/cloud-init-output.log",
+                        "log_group_name": "nukeme-log",
+                        "log_stream_name": "nukeme-worker-log",
+                        "retention_in_days": 1
+                      }
+                    ]
+                  }
                 }
-              }
-            },
-            "metrics": {
-              "metrics_collected": {
-                "collectd": {
-                  "metrics_aggregation_interval": 60
+              },
+              "metrics": {
+                "metrics_collected": {
+                  "collectd": {
+                    "metrics_aggregation_interval": 60
+                  }
                 }
               }
             }
-          }
-          EOF
+            EOF
 
-          mkdir -p /usr/share/collectd
-          touch /usr/share/collectd/types.db
-          systemctl enable --now amazon-cloudwatch-agent.service
+            mkdir -p /usr/share/collectd
+            touch /usr/share/collectd/types.db
+            systemctl enable --now amazon-cloudwatch-agent.service
 
-          wget https://github.com/rebuy-de/aws-nuke/releases/download/v2.25.0/aws-nuke-v2.25.0-linux-amd64.tar.gz
-          tar xvf aws-nuke-v2.25.0-linux-amd64.tar.gz
-          chmod +x aws-nuke-v2.25.0-linux-amd64
+            wget https://github.com/rebuy-de/aws-nuke/releases/download/v2.25.0/aws-nuke-v2.25.0-linux-amd64.tar.gz
+            tar xvf aws-nuke-v2.25.0-linux-amd64.tar.gz
+            chmod +x aws-nuke-v2.25.0-linux-amd64
 
-          cat <<EOF > config.yaml
-          regions:
-            - global
-            - ${AWS::Region}
+            cat <<EOF > config.yaml
+            regions:
+              - global
+              - ${AWS::Region}
 
-          account-blocklist:
-          - "999999999999"
+            account-blocklist:
+            - "999999999999"
 
-          accounts:
-            "${AWS::AccountId}":
-              filters:
-                CloudFormationStack:
-                  - "${AWS::StackName}"
-                EC2VPC:
-                  - property: tag:Name
-                    value: nukeme-vpc
-                EC2InternetGateway:
-                  - property: tag:Name
-                    value: nukeme-igw
-                EC2InternetGatewayAttachment:
-                  - property: tag:igw:Name
-                    value: nukeme-igw
-                EC2RouteTable:
-                  - property: tag:Name
-                    value: nukeme-rtb-public
-                EC2Subnet:
-                  - property: tag:Name
-                    value: nukeme-subnet-public-a
-                EC2SecurityGroup:
-                  - property: tag:Name
-                    value: nukeme-sg-worker
-                IAMRole:
-                  - "nukeme-role-worker"
-                IAMRolePolicy:
-                  - "nukeme-role-worker -> nukeme-policy-admin"
-                IAMInstanceProfile:
-                  - "nukeme-role-worker"
-                IAMInstanceProfileRole:
-                  - "nukeme-role-worker -> nukeme-role-worker"
-                CloudWatchLogsLogGroup:
-                  - "nukeme-log"
-                EC2Instance:
-                  - property: tag:Name
-                    value: nukeme-worker
-                EC2Volume:
-                  - property: tag:Name
-                    value: "nukeme-worker"
-          EOF
+            resource-types:
+              excludes:
+                - EC2DHCPOption              
 
-          ./aws-nuke-v2.25.0-linux-amd64 -c config.yaml --force-sleep 3 --force --no-dry-run
-          aws cloudformation delete-stack --stack-name "${AWS::StackName}" --region ${AWS::Region}
+            accounts:
+              "${AWS::AccountId}":
+                filters:
+                  CloudFormationStack:
+                    - "${AWS::StackName}"
+                  EC2VPC:
+                    - property: tag:Name
+                      value: nukeme-vpc
+                  EC2InternetGateway:
+                    - property: tag:Name
+                      value: nukeme-igw
+                  EC2InternetGatewayAttachment:
+                    - property: tag:igw:Name
+                      value: nukeme-igw
+                  EC2RouteTable:
+                    - property: tag:Name
+                      value: nukeme-rtb-public
+                  EC2Subnet:
+                    - property: tag:Name
+                      value: nukeme-subnet-public-a
+                  EC2SecurityGroup:
+                    - property: tag:Name
+                      value: nukeme-sg-worker
+                  IAMRole:
+                    - "nukeme-role-worker"
+                  IAMRolePolicy:
+                    - "nukeme-role-worker -> nukeme-policy-admin"
+                  IAMInstanceProfile:
+                    - "nukeme-role-worker"
+                  IAMInstanceProfileRole:
+                    - "nukeme-role-worker -> nukeme-role-worker"
+                  CloudWatchLogsLogGroup:
+                    - "nukeme-log"
+                  EC2Instance:
+                    - property: tag:Name
+                      value: nukeme-worker
+                  EC2Volume:
+                    - property: tag:Name
+                      value: "nukeme-worker"
+                  EC2NetworkInterface:
+                    - property: VPC
+                      value: ${Vpc}
+            EOF
+
+            ./aws-nuke-v2.25.0-linux-amd64 -c config.yaml --force-sleep 3 --force --no-dry-run
+            aws cloudformation delete-stack --stack-name "${AWS::StackName}" --region ${AWS::Region}
+          - Vpc: !Ref WorkerVPC
       Tags:
         - Key: Name
           Value: nukeme-worker

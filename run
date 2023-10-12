@@ -9,6 +9,8 @@ Parameters:
 Resources:
   WorkerVPC:
     Type: AWS::EC2::VPC
+    DependsOn:
+      - WorkerRole
     Properties:
       CidrBlock: 10.0.0.0/16
       EnableDnsSupport: true
@@ -19,6 +21,8 @@ Resources:
 
   WorkerIGW:
     Type: AWS::EC2::InternetGateway
+    DependsOn:
+      - WorkerRole
     Properties:
       Tags:
         - Key: Name
@@ -26,12 +30,16 @@ Resources:
 
   InternetGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
+    DependsOn:
+      - WorkerRole
     Properties:
       InternetGatewayId: !Ref WorkerIGW
       VpcId: !Ref WorkerVPC
 
   WorkerRouteTable:
     Type: AWS::EC2::RouteTable
+    DependsOn:
+      - WorkerRole
     Properties:
       VpcId: !Ref WorkerVPC
       Tags:
@@ -40,7 +48,9 @@ Resources:
 
   DefaultWorkerRoute:
     Type: AWS::EC2::Route
-    DependsOn: InternetGatewayAttachment
+    DependsOn:
+      - WorkerRole
+      - InternetGatewayAttachment
     Properties:
       RouteTableId: !Ref WorkerRouteTable
       DestinationCidrBlock: 0.0.0.0/0
@@ -48,12 +58,16 @@ Resources:
 
   WorkerSubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn:
+      - WorkerRole
     Properties:
       RouteTableId: !Ref WorkerRouteTable
       SubnetId: !Ref WorkerSubnet
 
   WorkerSubnet:
     Type: AWS::EC2::Subnet
+    DependsOn:
+      - WorkerRole
     Properties:
       VpcId: !Ref WorkerVPC
       AvailabilityZone: !Select [ 0, !GetAZs '' ]
@@ -65,6 +79,8 @@ Resources:
 
   WorkerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
+    DependsOn:
+      - WorkerRole
     Properties:
       GroupName: nukeme-sg
       GroupDescription: "Allow nukeme worker to connect aws api endpoints"
@@ -103,6 +119,8 @@ Resources:
 
   WorkerInstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
+    DependsOn:
+      - WorkerRole
     Properties:
       Path: /
       InstanceProfileName: nukeme-role-worker
@@ -111,18 +129,24 @@ Resources:
 
   WorkerLogGroup:
     Type: AWS::Logs::LogGroup
+    DependsOn:
+      - WorkerRole
     Properties:
       LogGroupName: nukeme-log
       RetentionInDays: 1
   
   WorkerLogStream:
     Type: AWS::Logs::LogStream
+    DependsOn:
+      - WorkerRole
     Properties:
       LogGroupName: !Ref WorkerLogGroup
       LogStreamName: nukeme-worker-log
 
   WorkerInstance:
     Type: AWS::EC2::Instance
+    DependsOn:
+      - WorkerRole
     Properties:
       ImageId: !Ref LatestAmiId
       InstanceType: t3.micro

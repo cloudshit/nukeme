@@ -1,0 +1,177 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: run aws-nuke
+
+Parameters:
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+Resources:
+  WorkerVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: nukeme-vpc
+
+  WorkerIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value:  nukeme-igw
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref WorkerIGW
+      VpcId: !Ref WorkerVPC
+
+  WorkerRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref WorkerVPC
+      Tags:
+        - Key: Name
+          Value: nukeme-rtb-public
+
+  DefaultWorkerRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref WorkerRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref WorkerIGW
+
+  WorkerSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref WorkerRouteTable
+      SubnetId: !Ref WorkerSubnet
+
+  WorkerSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref WorkerVPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: 10.0.0.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: nukeme-subnet-public-a
+
+  WorkerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: nukeme-sg
+      GroupDescription: "Allow nukeme worker to connect aws api endpoints"
+      VpcId: !Ref WorkerVPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: nukeme-sg-worker
+
+  WorkerRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: nukeme-policy-admin
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: '*'
+                Resource: '*'
+
+  WorkerInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref WorkerRole
+
+  WorkerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: t3.micro
+      SecurityGroupIds:
+      IamInstanceProfile: !Ref WorkerInstanceProfile
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          GroupSet: 
+            - !Ref WorkerSecurityGroup
+          SubnetId:
+            !Ref WorkerSubnet
+      UserData: 
+        Fn::Base64: !Sub |
+          #!/bin/sh
+          wget https://github.com/rebuy-de/aws-nuke/releases/download/v2.25.0/aws-nuke-v2.25.0-linux-amd64.tar.gz
+          tar xvf aws-nuke-v2.25.0-linux-amd64.tar.gz
+          chmod +x aws-nuke-v2.25.0-linux-amd64
+
+          cat <<EOF > config.yaml
+          regions:
+            - global
+            - us-east-2
+            - us-east-1
+            - us-west-1
+            - us-west-2
+            - af-south-1
+            - ap-east-1
+            - ap-southeast-3
+            - ap-south-1
+            - ap-northeast-3
+            - ap-northeast-2
+            - ap-southeast-1
+            - ap-southeast-2
+            - ap-northeast-1
+            - ca-central-1
+            - cn-north-1
+            - cn-northwest-1
+            - eu-central-1
+            - eu-west-1
+            - eu-west-2
+            - eu-south-1
+            - eu-west-3
+            - eu-north-1
+            - me-south-1
+            - sa-east-1
+
+          account-blocklist:
+          - "999999999999"
+
+          accounts:
+            "${AWS::AccountId}": {}
+          EOF
+
+          ./aws-nuke-v2.25.0-linux-amd64 -c config.yaml --force
+      Tags:
+        - Key: Name
+          Value: nukeme-worker
+
+Outputs:
+  WorkerInstanceID:
+    Description: Worker instance ID
+    Value: !Ref WorkerInstance
+  Notice:
+    Description: Notice!
+    Value: This stack automatically deletes itself when worker job is done. Do not delete this stack manually!

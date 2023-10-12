@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: run aws-nuke
+Description: run [aws-nuke](https://github.com/rebuy-de/aws-nuke) with single cloudformation file
 
 Parameters:
   LatestAmiId:

@@ -1,5 +1,7 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: run [aws-nuke](https://github.com/rebuy-de/aws-nuke) with single cloudformation file
+Description: |
+  **A single CloudFormation file** that deletes all resources in the running AWS account.
+  It uses aws-nuke by rebuy-de (https://github.com/rebuy-de/aws-nuke) binary for nuking your account.
 
 Parameters:
   LatestAmiId:
